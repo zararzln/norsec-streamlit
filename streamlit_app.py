@@ -15,61 +15,73 @@ st.set_page_config(
 # ---------------------- GLOBAL STYLE (CSS) ----------------------
 st.markdown("""
 <style>
-/* Header gradient & rounded */
+/* ----------- GLOBAL BACKGROUND & TEXT ----------- */
+body, .stApp {
+  background-color: #0A192F;
+  color: #E6EDF3;
+  font-family: "Inter", sans-serif;
+}
+
+/* Header gradient */
 .header-card {
   background: linear-gradient(135deg, #0A2540 0%, #184E77 60%, #1E88E5 100%);
   color: #FFFFFF;
   padding: 26px 28px;
   border-radius: 18px;
-  box-shadow: 0 8px 24px rgba(10,37,64,0.25);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
   margin-bottom: 18px;
 }
-.header-title { font-size: 28px; font-weight: 700; margin: 0; display:flex; gap:12px; align-items:center; }
+.header-title { font-size: 28px; font-weight: 700; display:flex; gap:12px; align-items:center; }
 .header-sub  { font-size: 14px; opacity: 0.9; margin-top: 4px; }
-
 .flag { font-size: 24px; margin-left:auto; }
 
+/* KPI Cards */
 .card {
-  background: #FFFFFF;
-  border: 1px solid #EEF2F8;
+  background: #112240;
+  border: 1px solid #1F3B63;
   border-radius: 16px;
-  padding: 18px 18px 14px 18px;
-  box-shadow: 0 8px 18px rgba(16,24,40,0.05);
+  padding: 18px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
 }
+.kpi-number { font-size: 30px; font-weight: 700; color: #66B2FF; }
+.kpi-label  { font-size: 13px; color: #A8B2D1; }
+.kpi-icon   { font-size: 20px; opacity: 0.85; }
 
-.kpi-number { font-size: 30px; font-weight: 700; color: #0A2540; margin: 0; }
-.kpi-label  { font-size: 13px; color: #4B5563; margin-top: 4px; }
-.kpi-icon   { font-size: 20px; opacity: 0.75; }
-
+/* Insight pills */
 .insight-pill {
-  background:#F6F8FB;
-  border: 1px solid #E5ECF3;
+  background: #1C2E4A;
+  border: 1px solid #2B4B73;
+  color: #D9E2EC;
   border-radius: 12px;
   padding: 10px 12px;
   margin-bottom: 10px;
 }
 
-.sev-chip {
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 12px; font-weight:700;
-  color:#fff; display:inline-block;
-}
-.sev-critical { background:#E11D48; } /* red */
-.sev-high     { background:#F97316; } /* orange */
-.sev-medium   { background:#EAB308; } /* yellow */
-.sev-low      { background:#10B981; } /* green */
+/* Severity chips */
+.sev-chip { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight:600; color:#fff; }
+.sev-critical { background:#E11D48; }
+.sev-high     { background:#F97316; }
+.sev-medium   { background:#EAB308; color:#111; }
+.sev-low      { background:#10B981; }
 
+/* Tables & heatmaps */
 .table-wrap {
-  border: 1px solid #EEF2F8; border-radius: 16px; padding: 10px 10px 2px 10px;
-  background:#FFFFFF; box-shadow: 0 8px 18px rgba(16,24,40,0.05);
+  background:#112240;
+  border: 1px solid #1E3A5F;
+  border-radius: 16px;
+  padding: 12px;
+  color: #E6EDF3;
 }
+.dataframe th { background:#1E3A5F !important; color:#FFFFFF !important; }
+.dataframe td { color:#E6EDF3 !important; }
 
-.legend { font-size:12px; color:#6B7280; margin-top:8px;}
-.small-muted { font-size:12px; color:#6B7280;}
-.section-title { font-size:20px; font-weight:700; color:#0A2540; margin-bottom:10px;}
+/* Section titles & footers */
+.section-title { font-size:20px; font-weight:700; color:#66B2FF; margin-bottom:10px; }
+.legend { font-size:12px; color:#A8B2D1; margin-top:8px; }
+footer { color:#A8B2D1; }
 </style>
 """, unsafe_allow_html=True)
+
 
 # ---------------------- SAMPLE / SIM DATA ----------------------
 def generate_sample_cve(n=15, seed=42):
