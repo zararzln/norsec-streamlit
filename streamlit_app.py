@@ -15,14 +15,24 @@ st.set_page_config(
 # ---------------------- GLOBAL STYLE (CSS) ----------------------
 st.markdown("""
 <style>
-.header-card { position:relative; overflow:hidden; }
-.header-card::after{
-  content:""; position:absolute; inset:-40px -60px auto auto; width:220px; height:220px;
-  background: radial-gradient(closest-side, rgba(30,136,229,.35), rgba(30,136,229,0));
-  filter: blur(18px);
-}
+/* Global dark background + typography */
+body, .stApp { background-color: #0A192F; color: #E6EDF3; font-family: "Inter", sans-serif; }
+
+/* Header gradient with glow */
+.header-card { position:relative; overflow:hidden; background: linear-gradient(135deg, #0A2540 0%, #184E77 60%, #1E88E5 100%); color:#FFFFFF;
+  padding: 26px 28px; border-radius: 18px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); margin-bottom: 18px; }
+.header-card::after{ content:""; position:absolute; inset:-40px -60px auto auto; width:220px; height:220px;
+  background: radial-gradient(closest-side, rgba(30,136,229,.35), rgba(30,136,229,0)); filter: blur(18px); }
+.header-title { font-size: 28px; font-weight: 700; display:flex; gap:12px; align-items:center; }
+.header-sub  { font-size: 14px; opacity: 0.9; margin-top: 4px; }
+.flag { font-size: 24px; margin-left:auto; }
+
+/* Cards, KPIs, badges */
 .kpi-grid { display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:16px; }
-.kpi-card { background:#112240; border:1px solid #1F3B63; border-radius:18px; padding:16px 18px; }
+.kpi-card, .gauge-card, .card, .table-wrap { background:#112240; border:1px solid #1F3B63; border-radius:18px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+.kpi-card { padding:16px 18px; }
+.gauge-card { padding:16px; }
+.card { padding:18px; }
 .kpi-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; color:#A8B2D1; font-size:12px; }
 .kpi-main { display:flex; align-items:baseline; gap:8px; }
 .kpi-value { font-size:30px; font-weight:700; color:#E6EDF3; }
@@ -30,18 +40,21 @@ st.markdown("""
 .kpi-delta.up { background:rgba(239,68,68,.12); color:#FF9CA3; }   /* worse */
 .kpi-delta.down { background:rgba(34,197,94,.12); color:#77E2A5; } /* better */
 .spark { height:42px; }
-.gauge-card { background:#112240; border:1px solid #1F3B63; border-radius:18px; padding:16px; }
-.insight-pill { display:flex; gap:10px; align-items:flex-start; }
-.ins-icon { width:20px; line-height:20px; }
 .badge { display:inline-block; background:#1C2E4A; border:1px solid #2B4B73; color:#D9E2EC; padding:4px 10px; border-radius:999px; font-size:12px; margin-right:6px; }
-.btn-row { display:flex; gap:8px; }
+.section-title { font-size:20px; font-weight:700; color:#66B2FF; margin-bottom:10px; }
+
+/* Insight pills */
+.insight-pill { background:#1C2E4A; border:1px solid #2B4B73; color:#D9E2EC; border-radius:12px; padding:10px 12px; margin-bottom:10px; display:flex; gap:10px; }
+.small-muted { font-size:12px; color:#A8B2D1; }
+.table-wrap { padding:12px; }
+.dataframe th { background:#1E3A5F !important; color:#FFFFFF !important; }
+.dataframe td { color:#E6EDF3 !important; }
+.legend { font-size:12px; color:#A8B2D1; margin-top:8px; }
 </style>
 """, unsafe_allow_html=True)
 
-
-
 # ---------------------- SAMPLE / SIM DATA ----------------------
-def generate_sample_cve(n=15, seed=42):
+def generate_sample_cve(n=24, seed=42):
     rng = np.random.default_rng(seed)
     types = ["Encryption Weakness","Code Injection","Insecure Permissions",
              "API Security Flaw","Memory Corruption","Insecure Data Storage","Session Management"]
@@ -49,40 +62,45 @@ def generate_sample_cve(n=15, seed=42):
     severities = ["Low","Medium","High","Critical"]
     rows = []
     year = datetime.now().year
-    for i in range(n):
+    for _ in range(n):
         t = rng.choice(types)
         p = rng.choice(platforms, p=[0.45,0.35,0.20])
         sev_label = rng.choice(severities, p=[0.15,0.30,0.30,0.25])
-        base = {"Low": (4.0,5.9), "Medium": (6.0,7.4), "High": (7.5,8.4), "Critical": (8.5,9.8)}[sev_label]
-        sev_score = float(np.round(rng.uniform(*base),1))
-        expl_score = float(np.round(rng.uniform(max(5.0, sev_score-1.5), 9.9),1))
-        cve_id = f"CVE-{year}-{rng.integers(1000,9999)}"
-        app = rng.choice(["DNB","Sbanken","SpareBank 1","Nordea","Vipps"])
+        lo, hi = {"Low": (4.0,5.9), "Medium": (6.0,7.4), "High": (7.5,8.4), "Critical": (8.5,9.8)}[sev_label]
+        sev_score = float(np.round(rng.uniform(lo, hi), 1))
+        expl_score = float(np.round(rng.uniform(max(5.0, sev_score-1.5), 9.9), 1))
         rows.append({
-            "cve_id": cve_id,
+            "cve_id": f"CVE-{year}-{rng.integers(1000,9999)}",
             "type": t,
             "platform": p,
             "severity": sev_label,
             "severity_score": sev_score,
             "exploitability": expl_score,
-            "app_name": app
+            "app_name": rng.choice(["DNB","Sbanken","SpareBank 1","Nordea","Vipps"])
         })
     return pd.DataFrame(rows)
 
-# Data source (upload or generated)
+# ---------------------- SIDEBAR (upload + filters) ----------------------
 with st.sidebar:
     st.header("Data")
-    up = st.file_uploader("Upload CVE-like CSV", type=["csv"], help="Columns: cve_id,type,platform,severity,severity_score,exploitability,app_name")
+    up = st.file_uploader("Upload CVE-like CSV", type=["csv"],
+                          help="Columns: cve_id,type,platform,severity,severity_score,exploitability,app_name")
     st.caption("No file? Using simulated CVE-style data.")
     st.header("Filters")
-    platform_filter = st.multiselect("Platform", ["Android","iOS","Cross-platform"], default=["Android","iOS","Cross-platform"])
+    platform_filter = st.multiselect("Platform", ["Android","iOS","Cross-platform"],
+                                     default=["Android","iOS","Cross-platform"])
     st.header("Display")
     show_counts = st.checkbox("Show counts in heatmap cells", value=True)
 
+# ---------------------- DATAFRAME BUILD ----------------------
 df = pd.read_csv(up) if up else generate_sample_cve(n=24)
-
-# Apply filter
 df = df[df["platform"].isin(platform_filter)].reset_index(drop=True)
+
+required = ["cve_id","type","platform","severity","severity_score","exploitability","app_name"]
+missing = [c for c in required if c not in df.columns]
+if missing:
+    st.error(f"Missing columns: {missing}")
+    st.stop()
 
 # ---------------------- HEADER ----------------------
 st.markdown("""
@@ -95,11 +113,17 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ---------------------- KPIs ----------------------# 
+# ---------------------- KPI PREP ----------------------
 total = len(df)
-critical = int((df["severity"]=="Critical").sum())
-high = int((df["severity"]=="High").sum())
+critical = int((df["severity"] == "Critical").sum())
+high = int((df["severity"] == "High").sum())
 medium_low = int((df["severity"].isin(["Medium","Low"])).sum())
+
+# previous period (synthetic) for deltas
+last_total = max(total - np.random.randint(0, 4), 0)
+last_critical = max(critical - np.random.randint(-1, 2), 0)
+last_high = max(high - np.random.randint(-1, 2), 0)
+last_ml = max(medium_low - np.random.randint(-2, 3), 0)
 
 def delta_chip(current, previous, higher_is_good=False):
     diff = current - previous
@@ -107,25 +131,27 @@ def delta_chip(current, previous, higher_is_good=False):
         return '<span class="kpi-delta">0</span>'
     good = (diff < 0) if not higher_is_good else (diff > 0)
     klass = "down" if good else "up"
-    sign = "+" if diff>0 else "−"
+    sign = "+" if diff > 0 else "−"
     return f'<span class="kpi-delta {klass}">{sign}{abs(diff)}</span>'
 
 def sparkline(vals):
     fig = px.area(y=vals, height=42)
     fig.update_traces(hoverinfo="skip")
     fig.update_layout(
-        margin=dict(l=0,r=0,t=0,b=0),
+        margin=dict(l=0, r=0, t=0, b=0),
         paper_bgcolor="#112240", plot_bgcolor="#112240",
-        xaxis=dict(visible=False), yaxis=dict(visible=False)
+        xaxis=dict(visible=False), yaxis=dict(visible=False),
+        font=dict(color="#E6EDF3")
     )
     return fig
 
-# little histories for sparklines
-hist_total    = np.clip(np.cumsum(np.random.randint(-2,3, size=12)) + total, 0, None)
-hist_critical = np.clip(np.cumsum(np.random.randint(-1,2, size=12)) + critical, 0, None)
-hist_high     = np.clip(np.cumsum(np.random.randint(-1,2, size=12)) + high, 0, None)
-hist_ml       = np.clip(np.cumsum(np.random.randint(-2,3, size=12)) + medium_low, 0, None)
+# histories for sparklines
+hist_total    = np.clip(np.cumsum(np.random.randint(-2, 3, size=12)) + total, 0, None)
+hist_critical = np.clip(np.cumsum(np.random.randint(-1, 2, size=12)) + critical, 0, None)
+hist_high     = np.clip(np.cumsum(np.random.randint(-1, 2, size=12)) + high, 0, None)
+hist_ml       = np.clip(np.cumsum(np.random.randint(-2, 3, size=12)) + medium_low, 0, None)
 
+# ---------------------- KPIs (cards + sparklines) ----------------------
 st.markdown('<div class="kpi-grid">', unsafe_allow_html=True)
 c1, c2, c3, c4 = st.columns(4)
 
@@ -163,12 +189,11 @@ with c4:
 
 st.markdown('</div>', unsafe_allow_html=True)
 
-# ------- Risk Index gauge -------
-weighted = np.average(
-    df["severity_score"],
-    weights=np.clip(df["exploitability"], 0.1, None)
-)
-risk_index = float(np.round(weighted, 1))  # 4.0–10.0 scale
+# ---------------------- RISK INDEX GAUGE + BADGES ----------------------
+weighted = np.average(df["severity_score"], weights=np.clip(df["exploitability"], 0.1, None))
+risk_index = float(np.round(weighted, 1))
+top_type_counts = df["type"].value_counts()
+top_type = top_type_counts.idxmax() if not top_type_counts.empty else "—"
 
 gauge = go.Figure(go.Indicator(
     mode="gauge+number",
@@ -180,18 +205,15 @@ gauge = go.Figure(go.Indicator(
         'bgcolor': '#112240',
         'borderwidth': 0,
         'steps': [
-            {'range': [4,6],  'color':'#064E3B'},
-            {'range': [6,7.5],'color':'#92400E'},
+            {'range': [4,6],   'color':'#064E3B'},
+            {'range': [6,7.5], 'color':'#92400E'},
             {'range': [7.5,8.5],'color':'#7C2D12'},
             {'range': [8.5,10],'color':'#7F1D1D'}
         ]
     },
     title={'text': "Risk Index", 'font': {'color':'#66B2FF'}}
 ))
-gauge.update_layout(
-    height=220, margin=dict(l=10,r=10,t=40,b=0),
-    paper_bgcolor="#112240"
-)
+gauge.update_layout(height=220, margin=dict(l=10,r=10,t=40,b=0), paper_bgcolor="#112240", font=dict(color="#E6EDF3"))
 
 gc1, gc2 = st.columns([1,3])
 with gc1:
@@ -211,110 +233,80 @@ with gc2:
 
 # ---------------------- AI-POWERED INSIGHTS ----------------------
 st.markdown('<div class="card"><div class="section-title">🤖 AI-Powered Insights</div>', unsafe_allow_html=True)
-
 insights = []
-
-# 1: critical count
 if critical >= 5:
     insights.append(f"🔴 {critical} critical vulnerabilities detected that require immediate attention.")
-
-# 2: most common type
-top_type = df["type"].value_counts().idxmax()
-top_type_n = df["type"].value_counts().max()
-insights.append(f"⚠️ {top_type} is the most frequently observed threat, appearing {top_type_n} times across scanned apps.")
-
-# 3: iOS vs Android severity comparison
+tt = df["type"].value_counts()
+if len(tt):
+    insights.append(f"⚠️ {tt.index[0]} is the most frequently observed threat, appearing {tt.iloc[0]} times across scanned apps.")
 ios_avg = df.loc[df["platform"] == "iOS", "severity_score"].mean()
 and_avg = df.loc[df["platform"] == "Android", "severity_score"].mean()
 if pd.notna(ios_avg) and pd.notna(and_avg):
     delta = ios_avg - and_avg
     arrow = "higher" if delta > 0 else "lower"
     insights.append(f"📱 iOS apps show an average severity that is {abs(delta):.1f}% {arrow} than Android applications.")
-
-# 4: overall average severity
 overall = df["severity_score"].mean()
 insights.append(f"🏦 The average severity score across Norwegian banking apps is {overall:.1f}, suggesting closer monitoring for top-risk applications.")
-
 for tip in insights:
     st.markdown(f'<div class="insight-pill">{tip}</div>', unsafe_allow_html=True)
-
 st.markdown('</div>', unsafe_allow_html=True)
-
 
 # ---------------------- VULNERABILITY DISTRIBUTION (BAR) ----------------------
 counts = df["type"].value_counts().reset_index()
 counts.columns = ["type","count"]
 fig_bar = px.bar(
-    counts, x="type", y="count",
-    title="Vulnerability Distribution by Type",
-    text="count",
-    color="count",
-    color_continuous_scale=["#F59E0B","#F97316","#EF4444"]  # yellow→orange→red
+    counts, x="type", y="count", title="Vulnerability Distribution by Type",
+    text="count", color="count", color_continuous_scale=["#F59E0B","#F97316","#EF4444"]
 )
 fig_bar.update_traces(textposition="outside")
 fig_bar.update_layout(
     margin=dict(l=10,r=10,t=50,b=10),
-    paper_bgcolor="white", plot_bgcolor="white",
-    xaxis_title=None, yaxis_title=None
+    paper_bgcolor="#112240", plot_bgcolor="#112240",
+    font=dict(color="#E6EDF3"), xaxis_title=None, yaxis_title=None
 )
-st.plotly_chart(fig_bar, use_container_width=True)
+st.plotly_chart(fig_bar, use_container_width=True, config={"displayModeBar": False})
 
 # ---------------------- SEVERITY HEATMAP (PLATFORM × TYPE) ----------------------
-# Pivot average severity score
 pivot = df.pivot_table(index="type", columns="platform", values="severity_score", aggfunc="mean")
 counts_pt = df.groupby(["type","platform"]).size().unstack(fill_value=0)
-
-# Build heatmap with annotations
 types_order = pivot.index.tolist()
 platforms_order = pivot.columns.tolist()
+z = pivot.values; x = platforms_order; y = types_order
 
-z = pivot.values
-x = platforms_order
-y = types_order
-
-# choose colors by ranges
 colorscale = [
-    [0.00, "#D1FAE5"], # low green
-    [0.25, "#FDE68A"], # medium yellow
-    [0.50, "#FDBA74"], # high orange
-    [0.75, "#FCA5A5"], # critical light red
-    [1.00, "#F87171"], # deeper red
+    [0.00, "#064E3B"],  # low green (dark)
+    [0.25, "#92400E"],  # medium amber (dark)
+    [0.50, "#7C2D12"],  # high orange/brown
+    [0.75, "#7F1D1D"],  # critical red (dark)
+    [1.00, "#DC2626"],  # deeper red
 ]
 
-# normalize scores to 0-1 by 4-10 range
-def norm(v):
-    return (v-4.0)/6.0
-
+def norm(v): return (v-4.0)/6.0
 z_norm = np.vectorize(lambda v: None if pd.isna(v) else max(0.0, min(1.0, norm(v))))(z)
 
 fig_hm = go.Figure(data=go.Heatmap(
-    z=z_norm,
-    x=x, y=y,
-    colorscale=colorscale,
+    z=z_norm, x=x, y=y, colorscale=colorscale,
     colorbar=dict(title="Severity", tickvals=[0,0.33,0.66,1], ticktext=["Low","Medium","High","Critical"])
 ))
-# add annotations (score + counts)
-for i, ty in enumerate(y):
-    for j, plat in enumerate(x):
+for ty in y:
+    for plat in x:
         score = pivot.loc[ty, plat] if plat in pivot.columns else np.nan
         cnt = counts_pt.loc[ty, plat] if (ty in counts_pt.index and plat in counts_pt.columns) else 0
-        label = ""
         if pd.notna(score):
-            label = f"{score:.1f}" + (f" ({cnt})" if {show_counts} else "")
-        fig_hm.add_annotation(x=plat, y=ty, text=label, showarrow=False, font=dict(color="#111", size=12))
+            label = f"{score:.1f}" + (f" ({cnt})" if show_counts else "")
+            fig_hm.add_annotation(x=plat, y=ty, text=label, showarrow=False, font=dict(color="#E6EDF3", size=12))
 
 fig_hm.update_layout(
     title="Severity Heatmap (Platform × Type)",
     margin=dict(l=10,r=10,t=50,b=10),
-    paper_bgcolor="white", plot_bgcolor="white",
+    paper_bgcolor="#112240", plot_bgcolor="#112240", font=dict(color="#E6EDF3"),
     xaxis_title=None, yaxis_title=None
 )
-st.plotly_chart(fig_hm, use_container_width=True)
+st.plotly_chart(fig_hm, use_container_width=True, config={"displayModeBar": False})
 st.markdown('<div class="legend">Legend: Critical (≥8.5) • High (7.5–8.4) • Medium (6–7.4) • Low (&lt;6)</div>', unsafe_allow_html=True)
 
 # ---------------------- TOP VULNERABILITIES TABLE ----------------------
 st.markdown('<div class="section-title">Top Vulnerabilities (CVEs)</div>', unsafe_allow_html=True)
-
 colf1, colf2 = st.columns([1,1])
 with colf1:
     platform_pick = st.selectbox("Filter platform", ["All Platforms","Android","iOS","Cross-platform"], index=0)
@@ -323,8 +315,7 @@ with colf2:
 
 df_table = df.copy()
 if platform_pick != "All Platforms":
-    df_table = df_table[df_table["platform"]==platform_pick]
-
+    df_table = df_table[df_table["platform"] == platform_pick]
 df_table = df_table.sort_values("severity_score" if sort_key=="Severity Score" else "exploitability", ascending=False)
 
 def sev_chip(s):
@@ -348,4 +339,4 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 # ---------------------- FOOTER ----------------------
 st.markdown("---")
-st.caption("Designed & analyzed by Zara — part of *Zara’s Norske AI-prosjekter* 🇳🇴  •  Data simulated for educational use only.")
+st.caption("Designed & analyzed by Zara — part of Zara’s Norske AI-prosjekter 🇳🇴  •  Data simulated for educational use only.")
