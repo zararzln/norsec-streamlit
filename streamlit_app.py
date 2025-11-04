@@ -15,72 +15,29 @@ st.set_page_config(
 # ---------------------- GLOBAL STYLE (CSS) ----------------------
 st.markdown("""
 <style>
-/* ----------- GLOBAL BACKGROUND & TEXT ----------- */
-body, .stApp {
-  background-color: #0A192F;
-  color: #E6EDF3;
-  font-family: "Inter", sans-serif;
+.header-card { position:relative; overflow:hidden; }
+.header-card::after{
+  content:""; position:absolute; inset:-40px -60px auto auto; width:220px; height:220px;
+  background: radial-gradient(closest-side, rgba(30,136,229,.35), rgba(30,136,229,0));
+  filter: blur(18px);
 }
-
-/* Header gradient */
-.header-card {
-  background: linear-gradient(135deg, #0A2540 0%, #184E77 60%, #1E88E5 100%);
-  color: #FFFFFF;
-  padding: 26px 28px;
-  border-radius: 18px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-  margin-bottom: 18px;
-}
-.header-title { font-size: 28px; font-weight: 700; display:flex; gap:12px; align-items:center; }
-.header-sub  { font-size: 14px; opacity: 0.9; margin-top: 4px; }
-.flag { font-size: 24px; margin-left:auto; }
-
-/* KPI Cards */
-.card {
-  background: #112240;
-  border: 1px solid #1F3B63;
-  border-radius: 16px;
-  padding: 18px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-}
-.kpi-number { font-size: 30px; font-weight: 700; color: #66B2FF; }
-.kpi-label  { font-size: 13px; color: #A8B2D1; }
-.kpi-icon   { font-size: 20px; opacity: 0.85; }
-
-/* Insight pills */
-.insight-pill {
-  background: #1C2E4A;
-  border: 1px solid #2B4B73;
-  color: #D9E2EC;
-  border-radius: 12px;
-  padding: 10px 12px;
-  margin-bottom: 10px;
-}
-
-/* Severity chips */
-.sev-chip { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight:600; color:#fff; }
-.sev-critical { background:#E11D48; }
-.sev-high     { background:#F97316; }
-.sev-medium   { background:#EAB308; color:#111; }
-.sev-low      { background:#10B981; }
-
-/* Tables & heatmaps */
-.table-wrap {
-  background:#112240;
-  border: 1px solid #1E3A5F;
-  border-radius: 16px;
-  padding: 12px;
-  color: #E6EDF3;
-}
-.dataframe th { background:#1E3A5F !important; color:#FFFFFF !important; }
-.dataframe td { color:#E6EDF3 !important; }
-
-/* Section titles & footers */
-.section-title { font-size:20px; font-weight:700; color:#66B2FF; margin-bottom:10px; }
-.legend { font-size:12px; color:#A8B2D1; margin-top:8px; }
-footer { color:#A8B2D1; }
+.kpi-grid { display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:16px; }
+.kpi-card { background:#112240; border:1px solid #1F3B63; border-radius:18px; padding:16px 18px; }
+.kpi-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; color:#A8B2D1; font-size:12px; }
+.kpi-main { display:flex; align-items:baseline; gap:8px; }
+.kpi-value { font-size:30px; font-weight:700; color:#E6EDF3; }
+.kpi-delta { font-size:12px; border-radius:10px; padding:2px 8px; }
+.kpi-delta.up { background:rgba(239,68,68,.12); color:#FF9CA3; }   /* worse */
+.kpi-delta.down { background:rgba(34,197,94,.12); color:#77E2A5; } /* better */
+.spark { height:42px; }
+.gauge-card { background:#112240; border:1px solid #1F3B63; border-radius:18px; padding:16px; }
+.insight-pill { display:flex; gap:10px; align-items:flex-start; }
+.ins-icon { width:20px; line-height:20px; }
+.badge { display:inline-block; background:#1C2E4A; border:1px solid #2B4B73; color:#D9E2EC; padding:4px 10px; border-radius:999px; font-size:12px; margin-right:6px; }
+.btn-row { display:flex; gap:8px; }
 </style>
 """, unsafe_allow_html=True)
+
 
 
 # ---------------------- SAMPLE / SIM DATA ----------------------
@@ -139,20 +96,120 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------- KPIs ----------------------
-total = len(df)
-critical = int((df["severity"]=="Critical").sum())
-high = int((df["severity"]=="High").sum())
-medium_low = int((df["severity"].isin(["Medium","Low"])).sum())
+# ------- KPIs with deltas + sparklines -------
+# Make a pseudo "last period" to show deltas (since data is simulated)
+last_total = max(total - np.random.randint(0,4), 0)
+last_critical = max(critical - np.random.randint(-1,2), 0)
+last_high = max(high - np.random.randint(-1,2), 0)
+last_ml = max(medium_low - np.random.randint(-2,3), 0)
 
-c1,c2,c3,c4 = st.columns(4)
+def delta_chip(current, previous, higher_is_good=False):
+    diff = current - previous
+    if diff == 0:
+        return '<span class="kpi-delta">0</span>'
+    good = (diff < 0) if not higher_is_good else (diff > 0)
+    klass = "down" if good else "up"
+    sign = "+" if diff>0 else "−"
+    return f'<span class="kpi-delta {klass}">{sign}{abs(diff)}</span>'
+
+def sparkline(vals):
+    fig = px.area(y=vals, height=42)
+    fig.update_traces(hoverinfo="skip")
+    fig.update_layout(
+        margin=dict(l=0,r=0,t=0,b=0),
+        paper_bgcolor="#112240", plot_bgcolor="#112240",
+        xaxis=dict(visible=False), yaxis=dict(visible=False)
+    )
+    return fig
+
+# little histories for sparklines
+hist_total    = np.clip(np.cumsum(np.random.randint(-2,3, size=12)) + total, 0, None)
+hist_critical = np.clip(np.cumsum(np.random.randint(-1,2, size=12)) + critical, 0, None)
+hist_high     = np.clip(np.cumsum(np.random.randint(-1,2, size=12)) + high, 0, None)
+hist_ml       = np.clip(np.cumsum(np.random.randint(-2,3, size=12)) + medium_low, 0, None)
+
+st.markdown('<div class="kpi-grid">', unsafe_allow_html=True)
+c1, c2, c3, c4 = st.columns(4)
+
 with c1:
-    st.markdown('<div class="card"><div class="kpi-icon">🛡️</div><p class="kpi-number">{}</p><p class="kpi-label">Total Vulnerabilities</p></div>'.format(total), unsafe_allow_html=True)
+    st.markdown(f'''
+    <div class="kpi-card">
+      <div class="kpi-top">Total Vulnerabilities <span>🛡️</span></div>
+      <div class="kpi-main"><div class="kpi-value">{total}</div>{delta_chip(total, last_total)}</div>
+    </div>''', unsafe_allow_html=True)
+    st.plotly_chart(sparkline(hist_total), use_container_width=True, config={"displayModeBar": False})
+
 with c2:
-    st.markdown('<div class="card"><div class="kpi-icon">❗</div><p class="kpi-number">{}</p><p class="kpi-label">Critical</p></div>'.format(critical), unsafe_allow_html=True)
+    st.markdown(f'''
+    <div class="kpi-card">
+      <div class="kpi-top">Critical <span>❗</span></div>
+      <div class="kpi-main"><div class="kpi-value">{critical}</div>{delta_chip(critical, last_critical)}</div>
+    </div>''', unsafe_allow_html=True)
+    st.plotly_chart(sparkline(hist_critical), use_container_width=True, config={"displayModeBar": False})
+
 with c3:
-    st.markdown('<div class="card"><div class="kpi-icon">⚠️</div><p class="kpi-number">{}</p><p class="kpi-label">High Priority</p></div>'.format(high), unsafe_allow_html=True)
+    st.markdown(f'''
+    <div class="kpi-card">
+      <div class="kpi-top">High Priority <span>⚠️</span></div>
+      <div class="kpi-main"><div class="kpi-value">{high}</div>{delta_chip(high, last_high)}</div>
+    </div>''', unsafe_allow_html=True)
+    st.plotly_chart(sparkline(hist_high), use_container_width=True, config={"displayModeBar": False})
+
 with c4:
-    st.markdown('<div class="card"><div class="kpi-icon">ℹ️</div><p class="kpi-number">{}</p><p class="kpi-label">Medium & Low</p></div>'.format(medium_low), unsafe_allow_html=True)
+    st.markdown(f'''
+    <div class="kpi-card">
+      <div class="kpi-top">Medium & Low <span>ℹ️</span></div>
+      <div class="kpi-main"><div class="kpi-value">{medium_low}</div>{delta_chip(medium_low, last_ml, higher_is_good=False)}</div>
+    </div>''', unsafe_allow_html=True)
+    st.plotly_chart(sparkline(hist_ml), use_container_width=True, config={"displayModeBar": False})
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+# ------- Risk Index gauge -------
+weighted = np.average(
+    df["severity_score"],
+    weights=np.clip(df["exploitability"], 0.1, None)
+)
+risk_index = float(np.round(weighted, 1))  # 4.0–10.0 scale
+
+gauge = go.Figure(go.Indicator(
+    mode="gauge+number",
+    value=risk_index,
+    number={'font': {'color':'#E6EDF3'}},
+    gauge={
+        'axis': {'range': [4, 10], 'tickcolor':'#A8B2D1', 'tickwidth':1},
+        'bar': {'color': '#1E88E5'},
+        'bgcolor': '#112240',
+        'borderwidth': 0,
+        'steps': [
+            {'range': [4,6],  'color':'#064E3B'},
+            {'range': [6,7.5],'color':'#92400E'},
+            {'range': [7.5,8.5],'color':'#7C2D12'},
+            {'range': [8.5,10],'color':'#7F1D1D'}
+        ]
+    },
+    title={'text': "Risk Index", 'font': {'color':'#66B2FF'}}
+))
+gauge.update_layout(
+    height=220, margin=dict(l=10,r=10,t=40,b=0),
+    paper_bgcolor="#112240"
+)
+
+gc1, gc2 = st.columns([1,3])
+with gc1:
+    st.markdown('<div class="gauge-card">', unsafe_allow_html=True)
+    st.plotly_chart(gauge, use_container_width=True, config={"displayModeBar": False})
+    st.markdown('</div>', unsafe_allow_html=True)
+with gc2:
+    st.markdown('<div class="gauge-card"><div class="section-title">Current posture</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<span class="badge">Top type: {top_type}</span>'
+        f'<span class="badge">Critical: {critical}</span>'
+        f'<span class="badge">Avg severity: {df["severity_score"].mean():.1f}</span>'
+        f'<span class="badge">Avg exploitability: {df["exploitability"].mean():.1f}</span>',
+        unsafe_allow_html=True
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # ---------------------- AI-POWERED INSIGHTS ----------------------
 st.markdown('<div class="card"><div class="section-title">🤖 AI-Powered Insights</div>', unsafe_allow_html=True)
