@@ -95,13 +95,11 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ---------------------- KPIs ----------------------
-# ------- KPIs with deltas + sparklines -------
-# Make a pseudo "last period" to show deltas (since data is simulated)
-last_total = max(total - np.random.randint(0,4), 0)
-last_critical = max(critical - np.random.randint(-1,2), 0)
-last_high = max(high - np.random.randint(-1,2), 0)
-last_ml = max(medium_low - np.random.randint(-2,3), 0)
+# ---------------------- KPIs ----------------------# 
+total = len(df)
+critical = int((df["severity"]=="Critical").sum())
+high = int((df["severity"]=="High").sum())
+medium_low = int((df["severity"].isin(["Medium","Low"])).sum())
 
 def delta_chip(current, previous, higher_is_good=False):
     diff = current - previous
