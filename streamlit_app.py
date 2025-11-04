@@ -146,28 +146,33 @@ with c4:
 st.markdown('<div class="card"><div class="section-title">🤖 AI-Powered Insights</div>', unsafe_allow_html=True)
 
 insights = []
+
 # 1: critical count
 if critical >= 5:
-    insights.append("🔴 **{} critical vulnerabilities** detected requiring immediate attention.".format(critical))
+    insights.append(f"🔴 {critical} critical vulnerabilities detected that require immediate attention.")
+
 # 2: most common type
 top_type = df["type"].value_counts().idxmax()
 top_type_n = df["type"].value_counts().max()
-insights.append(f"⚠️ **{top_type}** is the most prevalent threat (**{top_type_n}** occurrences).")
-# 3: iOS vs Android severity
-ios_avg = df.loc[df["platform"]=="iOS","severity_score"].mean()
-and_avg = df.loc[df["platform"]=="Android","severity_score"].mean()
+insights.append(f"⚠️ {top_type} is the most frequently observed threat, appearing {top_type_n} times across scanned apps.")
+
+# 3: iOS vs Android severity comparison
+ios_avg = df.loc[df["platform"] == "iOS", "severity_score"].mean()
+and_avg = df.loc[df["platform"] == "Android", "severity_score"].mean()
 if pd.notna(ios_avg) and pd.notna(and_avg):
-    delta = (ios_avg - and_avg)
-    arrow = "higher" if delta>0 else "lower"
-    insights.append(f"📱 **iOS** apps show **{abs(delta):.1f}% {arrow} average severity** than Android.")
-# 4: banking severity avg
+    delta = ios_avg - and_avg
+    arrow = "higher" if delta > 0 else "lower"
+    insights.append(f"📱 iOS apps show an average severity that is {abs(delta):.1f}% {arrow} than Android applications.")
+
+# 4: overall average severity
 overall = df["severity_score"].mean()
-insights.append(f"🏦 Banking apps average severity: **{overall:.1f}** — consider enhanced monitoring for top-risk apps.")
+insights.append(f"🏦 The average severity score across Norwegian banking apps is {overall:.1f}, suggesting closer monitoring for top-risk applications.")
 
 for tip in insights:
     st.markdown(f'<div class="insight-pill">{tip}</div>', unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
+
 
 # ---------------------- VULNERABILITY DISTRIBUTION (BAR) ----------------------
 counts = df["type"].value_counts().reset_index()
